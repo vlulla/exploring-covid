@@ -18,8 +18,8 @@ PANDOC_OPTS=-f markdown+pipe_tables+footnotes+tex_math_dollars+implicit_figures 
 PANDOC_HTML_OPTS = -t html5 --self-contained --number-sections --listings --mathml --email-obfuscation=references 
 LILYPOND=lilypond
 
-all: evolution-of-covid.html evolution-of-covid.R evolution-of-covid.Rout
-## all: evolution-of-covid.Rout
+all: exploring-covid.html exploring-covid.R exploring-covid.Rout
+## all: exploring-covid.Rout
 
 %.tex: %.md Makefile
 	pandoc ${PANDOC_OPTS} -t latex -o $@ $<
