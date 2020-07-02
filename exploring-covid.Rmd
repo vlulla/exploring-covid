@@ -1,26 +1,14 @@
 ---
-title: "COVID-19 in Indiana"
+title: "Exploring COVID-19 data"
+subtitle: "(only for Indiana)"
 auhtor: "[Vijay Lulla](https://vlulla.github.io)"
 date: 2020.07.02
 output:
   html_document:
     fig_caption: true
-  pdf_document:
-    keep_tex: false
-  word_document:
-    fig_caption: true
-fontfamilyoptions:
-- osf
-- p
+    toc: true
+    number_sections: true
 linkcolor: blue
-microtypeoptions:
-- final
-- tracking=true
-- kerning=true
-- spacing=true
-- factor=1100
-- stretch=10
-- shrink=10
 geometry: margin=1in
 bibliography: bibliography.bib
 ---
@@ -267,13 +255,25 @@ for(d in dts) {
 ```
 
 And, finally we can combine all of these pngs into a gif using ImageMagick
-using something like `convert figs/cases*.png cases.gif`. Here are the very
-rudimentary results of my _unsuccessful_ attempt.
+using something like `convert figs/cases*.png cases.gif`. Here is the very
+rudimentary result of my _unsuccessful_ attempt.
 
 <center>
 ![Number of confirmed cases from
 2020.01.22--2020.06.30](figs/00cases.gif)
 </center>
+
+# Lessons learned
+
+1. Working with geospatial data is a lot trickier than anticipated. I tend to
+   forget this fact quite often and have to make a conscious, and regular,
+   effort to keep this in mind.
+1. Use `git` and `make` more often so that I become familiar enough with these
+   tools to use them _unconsciously_.
+1. Try to always remeber:
+
+   > It always takes longer than you expect, even if you take Hofstadter's
+   > Law into account.                                -- Douglas Hofstadter
 
 ```{r sessioninfo}
 sessionInfo()
