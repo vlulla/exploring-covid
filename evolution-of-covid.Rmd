@@ -1,0 +1,137 @@
+---
+title: "Title goes here"
+auhtor: "[Vijay Lulla](https://vlulla.github.io)"
+date: 2020.07.02
+output:
+  html_document:
+    number_sections: true
+    fig_caption: true
+    code_folding: hide
+  pdf_document:
+    keep_tex: false
+    number_sections: true
+  word_document:
+    fig_caption: true
+fontfamilyoptions:
+- osf
+- p
+fontsize: 11pt
+microtypeoptions:
+- final
+- tracking=true
+- kerning=true
+- spacing=true
+- factor=1100
+- stretch=10
+- shrink=10
+geometry: margin=1in
+bibliography: bibliography.bib
+---
+
+
+```{r global_options, echo=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, collapse=TRUE, fig.width=8, fig.height=6, fig.path="figs/")
+```
+
+# Introduction {#intro}
+
+Write your introduction here!
+
+It is usually multiple paragraphs.
+
+# Data and methods {#data-and-methods}
+
+Since this is a report containing R snippets it will include stuff for R code
+along with the descriptions of the data that you need.  Please also include
+where you got the data from!
+
+## Libraries {#libraries}
+
+```{r, message=FALSE}
+library("data.table")
+library("fst")
+library("magrittr")
+library("sf")
+library("ggplot2")
+
+```
+
+
+## Data Description {#data-description}
+
+More description of the data if required.
+
+```{r, data}
+confirmed <- fread("time_series_covid19_confirmed_US.csv", colClasses="character")
+confirmed[, FIPS:=as.character(as.integer(FIPS))]
+confirmed[nchar(FIPS)==4, FIPS:=sprintf("0%s",FIPS)]
+
+deaths <- fread("time_series_covid19_deaths_US.csv", colClasses="character")
+deaths[, FIPS:=as.character(as.integer(FIPS))]
+deaths[nchar(FIPS)==4, FIPS:=sprintf("0%s",FIPS)]
+```
+
+Since geographic data is most often distributed in
+(wide)[https://en.wikipedia.org/wiki/Wide_and_narrow_data#Wide] format we'll
+have to convert it into narrow/long format. And, just to be safe we include
+some `stopifnot` statements.
+
+```{r, melting}
+deaths.id.vars <- 1:12 ## head(colnames(deaths), 14) ... just to verify
+confirmed.id.vars <- 1:11 ## head(colnames(confirmed), 13)
+
+deaths.long <- melt(deaths, id.vars=colnames(deaths)[deaths.id.vars], 
+					measure.vars=colnames(deaths)[-deaths.id.vars], 
+					variable.name="date1", value.name="deaths")
+confirmed.long <- melt(confirmed, id.vars=colnames(confirmed)[confirmed.id.vars], 
+					   measure.vars=colnames(confirmed)[-confirmed.id.vars], 
+					   variable.name="date1", value.name="confirmed_cases")
+stopifnot(nrow(deaths) * (ncol(deaths)-length(deaths.id.vars)) == 
+		  nrow(deaths.long))
+stopifnot(nrow(confirmed) * (ncol(confirmed)-length(confirmed.id.vars)) == 
+		  nrow(confirmed.long))
+
+# just-in-case date formatting messes up we need the original date.
+deaths.long[, `:=`(ddate1 = strftime(as.Date(as.character(date1), format="%m/%d/%y"), format="%Y-%m-%d")
+				  ,deaths=as.integer(deaths) )]
+confirmed.long[, `:=`(ddate1=strftime(as.Date(as.character(date1), format="%m/%d/%y"), format="%Y-%m-%d")
+					 ,confirmed_cases = as.integer(confirmed_cases))]
+```
+
+BTW, this is also how any stock transaction data is stored!
+
+```{r, indiana_only}
+counties_geo <- st_read("counties.gpkg")
+IN_geo <- counties_geo[grepl("^18", counties_geo$GEOID),]
+deaths_IN <- deaths.long[grepl("^18", FIPS),]
+confirmed_IN <- confirmed.long[grepl("^18", FIPS), ]
+
+outdir <- "pngs"
+dts <- unique(deaths_IN$ddate1)
+
+## for(d in dts[155:160]) {
+for(d in dts) {
+	deaths_png <- file.path(outdir, sprintf("deaths_%s.png", d))
+	cases_png <- file.path(outdir, sprintf("cases_%s.png", d))
+
+	dd <- deaths_IN[ddate1==d, .(FIPS, deaths, ddate1)]
+	cc <- confirmed_IN[ddate1==d,.(FIPS, confirmed_cases, ddate1)]
+	ii <- IN_geo[, c("NAME", "GEOID", "geom")]
+	dat <- merge(ii, cc, by.x="GEOID", by.y="FIPS")
+	dat$confirmed_cases <- dat$confirmed_cases/sum(dat$confirmed_cases)
+	png(cases_png)
+	## plot(dat[, "confirmed_cases"], main=d, key.pos=NULL, border=0L, breaks="kmeans")
+	plot(dat[, "confirmed_cases"], main=d, breaks="kmeans")
+	dev.off()
+
+	dat <- merge(ii, dd, by.x="GEOID", by.y="FIPS")
+	dat$deaths <- dat$deaths/sum(dat$deaths)
+	png(deaths_png)
+	## plot(dat["deaths"], main=d, key.pos=NULL, border=0L, breaks="kmeans")
+	plot(dat["deaths"], main=d, breaks="kmeans")
+	dev.off()
+}
+```
+
+# References {#references}
+

@@ -1,0 +1,53 @@
+*.swp
+.DS_STORE
+
+# TeX related
+*.aux
+*.lof
+*.log
+*.lot
+*.fls
+*.out
+*.toc
+*.fmt
+*.cb
+*.cb2
+.*.lb
+*.dvi
+*.xdv
+*-converted-to.*
+.pdf
+*.bbl
+*.bcf
+*.blg
+*-blx.aux
+*-blx.bib
+*.run.xml
+*.fdb_latexmk
+
+
+# python related
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# R related
+.RData
+.Rhistory
+.Rpp.history
+/*.Rcheck/
+.Rproj.user/
+*.utf8.md
+*.knit.md
+.Renviron
+*.Rout
+
+# This project
+*.zip
+*.gpkg
+*.csv
+*.pdf
+*.html
+figs/
+pngs/
