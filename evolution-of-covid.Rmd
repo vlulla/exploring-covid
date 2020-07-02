@@ -1,21 +1,18 @@
 ---
-title: "Title goes here"
+title: "COVID-19 in Indiana"
 auhtor: "[Vijay Lulla](https://vlulla.github.io)"
 date: 2020.07.02
 output:
   html_document:
-    number_sections: true
     fig_caption: true
-    code_folding: hide
   pdf_document:
     keep_tex: false
-    number_sections: true
   word_document:
     fig_caption: true
 fontfamilyoptions:
 - osf
 - p
-fontsize: 11pt
+linkcolor: blue
 microtypeoptions:
 - final
 - tracking=true
@@ -28,53 +25,160 @@ geometry: margin=1in
 bibliography: bibliography.bib
 ---
 
-
 ```{r global_options, echo=FALSE, include=FALSE}
-knitr::opts_chunk$set(echo=TRUE, collapse=TRUE, fig.width=8, fig.height=6, fig.path="figs/")
+options(nwarnings=5L)
+knitr::opts_chunk$set(echo=TRUE, include=TRUE, collapse=FALSE, warning=FALSE, fig.width=8, fig.height=6, fig.path="figs/")
 ```
 
 # Introduction {#intro}
 
-Write your introduction here!
+I am very interested in visualizations. Especially, geospatial or geographic
+visualization! It's all the more better if it is interactive.
 
-It is usually multiple paragraphs.
+So, for my Data Incubator fellowship application challenge I decided that
+I will try to create a spatial animation of daily _confirmed cases_ and
+_deaths_, in Indiana, from COVID-19 as reported by Johns Hopkins University's
+interactive webiste [@dong_interactive_2020].
+
+## Motivation
+
+One of my persistent _annoyances_ (and _frustations_) is the central
+incompatibility between how the commonly available spatial data is organized
+and how the data needs to be organized to be used for analytics. The central
+issue is this: _most spatial data is stored in **wide**[^wiki-link-wide-table]
+format whereas most analytics software needs the data to be in **long**
+format_. And, not to mention all the various minor details (esoteric file
+formats of spatial data, missing/invalid data, R's automatic type conversion,
+etc. etc.) that need to be considered to successfully join spatial data with
+attribute data before you can even do any analytics. Lest you think I have
+been living under a rock I am quite aware, from my own past experiences and
+also reading articles and blogs similar to this [NYT
+article](https://www.nytimes.com/2014/08/18/technology/for-big-data-scientists-hurdle-to-insights-is-janitor-work.html),
+that data munging can take surprisingly more time than anticipated. But
+despite my better judgement I thought: _how hard can this really be_?  Right
+away you know that you are reading the words of a novice _data scientist_!
+
 
 # Data and methods {#data-and-methods}
 
-Since this is a report containing R snippets it will include stuff for R code
-along with the descriptions of the data that you need.  Please also include
-where you got the data from!
-
-## Libraries {#libraries}
+There are two data components needed to achieve this: 1) COVID-19 time series
+data, and 2) Geographic boundaries data.
 
 ```{r, message=FALSE}
+## load the libraries to get started...
 library("data.table")
-library("fst")
-library("magrittr")
 library("sf")
 library("ggplot2")
-
 ```
 
+## COVID-19 time series data
 
-## Data Description {#data-description}
+Johns Hopkins University's (JHU) provides the data in CSV format at
+<https://github.com/CSSEGISandData/COVID-19>. Exploring the folders I surmised
+that I needed to get the time series data. So, I downloaded the CSV files
+`time_series_covid19_confirmed_US.csv` and `time_series_covid19_deaths_US.csv`
+from this webiste. Some of you might be wondering: _why the heck didn't you
+just *clone* the repository?_ to which I reply: _sorry, I was being naive_
+[^git-ignorance].
 
-More description of the data if required.
+Let's read the data and see what we have.
 
 ```{r, data}
 confirmed <- fread("time_series_covid19_confirmed_US.csv", colClasses="character")
+dim(confirmed)
+confirmed[1:7, 1:15]
+head(colnames(confirmed), 20)
+
+deaths <- fread("time_series_covid19_deaths_US.csv", colClasses="character")
+dim(deaths)
+deaths[1:7, 1:15]
+head(colnames(deaths), 20)
+```
+
+So, we can see that the data is organized in a wide format where rows
+correspond to the counties of US and the columns correspond to attributes of
+the county and a column for each date (starting 2020.01.22) since JHU started
+tracking data. Looking at the dimensions (especially the number of columns) of
+these data I started thinking that I will _definitely_ have to do something to
+be able to join this data with the spatial data.
+
+The `FIPS` related formatting is because
+`time_series_covid19_confirmed_US.csv` stores the `FIPS` column as a numeric
+with a decimal 0 (see row 6)! In fact, I spent more than four hours trying to chase data
+type issues[^r-automatic-data-conversion-issues] before finally deciding to
+read the data with all columns as **character** vectors and then do the
+necessary data conversion myself. Let's at least fix `FIPS` which we will need
+to join the spatial data.
+
+```{r, fips-fixup}
 confirmed[, FIPS:=as.character(as.integer(FIPS))]
 confirmed[nchar(FIPS)==4, FIPS:=sprintf("0%s",FIPS)]
 
-deaths <- fread("time_series_covid19_deaths_US.csv", colClasses="character")
 deaths[, FIPS:=as.character(as.integer(FIPS))]
 deaths[nchar(FIPS)==4, FIPS:=sprintf("0%s",FIPS)]
 ```
 
-Since geographic data is most often distributed in
-(wide)[https://en.wikipedia.org/wiki/Wide_and_narrow_data#Wide] format we'll
-have to convert it into narrow/long format. And, just to be safe we include
-some `stopifnot` statements.
+## Geographic boundary data
+
+Anyone who has ever worked with any GIS software has inevitably had to deal
+with [shapefiles](https://en.wikipedia.org/wiki/Shapefile). While they might
+have been acceptable for a time period when they were created they are not
+suited for modern times. The GIS community, at least the open source
+geospatial community, realizes these shortcomings and are coming up with
+alternative formats such as [GeoPackage](https://www.geopackage.org/),
+[GeoJSON](https://geojson.org/). But visit any of the federal, state, or local
+government websites and you're very likely to run into spatial data provided
+only as shapefile, usually offered in a zip archive. There are many issues
+with shapefiles (just check out <http://switchfromshapefile.org/>)...but
+I know how to deal with all of them...just convert it to a GeoPackage! So,
+I downloaded the US county shapefile (`cb_2018_us_county_500k.zip`) from US
+Census Bureau's [Cartographic Boundary Files
+- Shapefile](https://www.census.gov/geographies/mapping-files/time-series/geo/carto-boundary-file.html)
+  and converted it to a geopackage.
+
+```{r, gpkg}
+## d <- st_read("cb_2018_us_county_500k.shp") 
+## st_write(d, "counties.gpkg") 
+## rm(d)
+(counties_geo <- st_read("counties.gpkg", quiet=TRUE))
+```
+
+Some things to notice are:
+
+1. The geospatial data has only 3233 counties whereas the timeseries data has
+   3261 counties!  That is because it has some extra rows for `Grand
+   Princess`, `Federal Corrections (MDOC)` etc. etc. which are irrelevant for
+   my purposes.
+1. The `GEOID` column is comprised of concatenating `STATEFP` and `COUNTYFP`
+   columns. You will also note that `table(nchar(counties_geo$GEOID))` yields
+   `r table(nchar(counties_geo$GEOID))` and that's why we had to '0'-prefix
+   some of our FIPS rows earlier.
+1. Finally, it appears that we can use the `GEOID` and `FIPS` columns to
+   join/relate our attribute and spatial tables.
+
+## Transforming data
+
+While we can definitely use the tabular data with the geospatial data "as is",
+there are a few things that we may want to consider:
+
+1. Since this timeseries is update daily there will be more columns as newer
+   data are added.
+1. Filtering, especially date range based, is going to involve selecting
+   different columns.
+1. Determining a date (or date ranges) based on some combination of values
+   (either confirmed case or deaths or some transformation of them) are going
+   to be rather tedious.
+
+Hence, it would be good if we can convert this to long data format. By the
+way, this is the same format that many of the analytics oriented applications,
+R included, view the data. That is, instead of thinking of a table consisting
+of rows we should think of it as a collection of columns, each of which is
+a vector of values! This is why inquiring `R` about a data.frame's length (for
+instance `length(mtcars)`) will yield the number of columns (i.e.,
+`dim(mtcars)[[2L]]` which is `r length(mtcars)`). This view of the data is
+called an "inverted table" [@hui_apl_2020 pg 11] and is the predominant view
+of columnar databases and analytic processing systems! Wide-to-long conversion
+is commonly called a "melt" operation in R parlance...so let's melt our data.
 
 ```{r, melting}
 deaths.id.vars <- 1:12 ## head(colnames(deaths), 14) ... just to verify
@@ -86,27 +190,52 @@ deaths.long <- melt(deaths, id.vars=colnames(deaths)[deaths.id.vars],
 confirmed.long <- melt(confirmed, id.vars=colnames(confirmed)[confirmed.id.vars], 
 					   measure.vars=colnames(confirmed)[-confirmed.id.vars], 
 					   variable.name="date1", value.name="confirmed_cases")
+
 stopifnot(nrow(deaths) * (ncol(deaths)-length(deaths.id.vars)) == 
 		  nrow(deaths.long))
 stopifnot(nrow(confirmed) * (ncol(confirmed)-length(confirmed.id.vars)) == 
 		  nrow(confirmed.long))
 
 # just-in-case date formatting messes up we need the original date.
-deaths.long[, `:=`(ddate1 = strftime(as.Date(as.character(date1), format="%m/%d/%y"), format="%Y-%m-%d")
+deaths.long[, `:=`(ddate1 = strftime(as.Date(as.character(date1), format="%m/%d/%y"), 
+									 format="%Y-%m-%d")
 				  ,deaths=as.integer(deaths) )]
-confirmed.long[, `:=`(ddate1=strftime(as.Date(as.character(date1), format="%m/%d/%y"), format="%Y-%m-%d")
+confirmed.long[, `:=`(ddate1=strftime(as.Date(as.character(date1), format="%m/%d/%y"), 
+									  format="%Y-%m-%d")
 					 ,confirmed_cases = as.integer(confirmed_cases))]
 ```
+We `melt` the data by using the first few columns as `id` variables and all
+the date columns as `measure` variables. It is a good idea to use `stopifnot`
+statements to ensure that the transform data conforms to what we are
+expecting. Starting from `R` version 4.0 `stopifnot` now accepts custom error
+messages via argument names to make argument checking easier. 
 
-BTW, this is also how any stock transaction data is stored!
+## Plotting the data
 
-```{r, indiana_only}
-counties_geo <- st_read("counties.gpkg")
+Now that we have our data, let's try to plot it.  While I wanted to create an animation for all the 
+counties in US I ran into lots of issues. So, I decided to just do a small
+example for Indiana counties.
+
+```{r indiana_only, fig.show="hold", out.width="50%", fig.align="default"}
 IN_geo <- counties_geo[grepl("^18", counties_geo$GEOID),]
 deaths_IN <- deaths.long[grepl("^18", FIPS),]
 confirmed_IN <- confirmed.long[grepl("^18", FIPS), ]
 
-outdir <- "pngs"
+deaths_20200627 <- deaths_IN[ddate1==as.Date('2020-06-27'), ]
+cases_20200627 <- confirmed_IN[ddate1==as.Date('2020-06-27'), ]
+
+par(mfrow=c(1,2))
+d <- merge(IN_geo, deaths_20200627, by.x="GEOID", by.y="FIPS")
+plot(d[, "deaths"], main="Deaths 2020-06-27", breaks='kmeans')
+d <- merge(IN_geo, cases_20200627, by.x="GEOID", by.y="FIPS")
+plot(d[, "confirmed_cases"], main="Confirmed cases 2020-06-27", breaks='kmeans')
+```
+
+Now that we know how to create a plot let's try to create a whole bunch of
+images which we can combine into an animation.
+
+```{r, animation-related}
+outdir <- "figs"
 dts <- unique(deaths_IN$ddate1)
 
 ## for(d in dts[155:160]) {
@@ -119,19 +248,47 @@ for(d in dts) {
 	ii <- IN_geo[, c("NAME", "GEOID", "geom")]
 	dat <- merge(ii, cc, by.x="GEOID", by.y="FIPS")
 	dat$confirmed_cases <- dat$confirmed_cases/sum(dat$confirmed_cases)
-	png(cases_png)
-	## plot(dat[, "confirmed_cases"], main=d, key.pos=NULL, border=0L, breaks="kmeans")
-	plot(dat[, "confirmed_cases"], main=d, breaks="kmeans")
-	dev.off()
+	if(!file.exists(cases_png)) {
+	  png(cases_png)
+	  ## plot(dat[, "confirmed_cases"], main=d, key.pos=NULL, border=0L, breaks="kmeans")
+	  plot(dat[, "confirmed_cases"], main=d, breaks="kmeans")
+	  dev.off()
+	}
 
 	dat <- merge(ii, dd, by.x="GEOID", by.y="FIPS")
 	dat$deaths <- dat$deaths/sum(dat$deaths)
-	png(deaths_png)
-	## plot(dat["deaths"], main=d, key.pos=NULL, border=0L, breaks="kmeans")
-	plot(dat["deaths"], main=d, breaks="kmeans")
-	dev.off()
+	if(!file.exists(deaths_png)) {
+	  png(deaths_png)
+	  ## plot(dat["deaths"], main=d, key.pos=NULL, border=0L, breaks="kmeans")
+	  plot(dat["deaths"], main=d, breaks="kmeans")
+	  dev.off()
+	}
 }
 ```
+
+And, finally we can combine all of these pngs into a gif using ImageMagick
+using something like `convert figs/cases*.png cases.gif`. Here are the very
+rudimentary results of my _unsuccessful_ attempt.
+
+<center>
+![Number of confirmed cases from
+2020.01.22--2020.06.30](figs/00cases.gif)
+</center>
+
+```{r sessioninfo}
+sessionInfo()
+```
+
+[^wiki-link-wide-table]: <https://en.wikipedia.org/wiki/Wide_and_narrow_data>
+[^git-ignorance]: Firstly, I rejoice that I can even comprehend what you mean
+  by this question. Secondly, as far as I'm aware git is not an integral part of
+  much of GIS (my own area of comfort) workflows. But, most important of all,
+  I have not yet internalized, and integrated, git comprehensively into _my own_
+  workflow!
+[^r-automatic-data-conversion-issues]: I could never figure out whehter it was
+  R's automatic data conversion or my heavy customization that was causing all
+  these issues. I tried running `R --vanilla` which only increased my
+  problems...sigh!
 
 # References {#references}
 

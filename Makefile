@@ -18,8 +18,8 @@ PANDOC_OPTS=-f markdown+pipe_tables+footnotes+tex_math_dollars+implicit_figures 
 PANDOC_HTML_OPTS = -t html5 --self-contained --number-sections --listings --mathml --email-obfuscation=references 
 LILYPOND=lilypond
 
-## all: evolution-of-covid.html evolution-of-covid.pdf evolution-of-covid.R
-all: evolution-of-covid.Rout
+all: evolution-of-covid.html evolution-of-covid.R evolution-of-covid.Rout
+## all: evolution-of-covid.Rout
 
 %.tex: %.md Makefile
 	pandoc ${PANDOC_OPTS} -t latex -o $@ $<
@@ -35,7 +35,6 @@ all: evolution-of-covid.Rout
 	${LILYPOND} $<
 %.pdf: %.Rmd Makefile
 	R ${R_OPTS} -e "rmarkdown::render('$<', 'pdf_document')"
-	xdg-open $@
 %.R: %.Rmd Makefile
 	R ${R_OPTS} -e "knitr::purl('$<')"
 ## %.pdf: %.md Makefile
@@ -54,6 +53,7 @@ all: evolution-of-covid.Rout
 
 %.html: %.Rmd Makefile
 	R ${R_OPTS} -e "rmarkdown::render('$<', 'html_document')"
+	xdg-open $@
 %.html: %.md Makefile
 	pandoc ${PANDOC_OPTS} ${PANDOC_HTML_OPTS} -o $@ $<
 	# sed -i -e 's@<table>@<table border="1" style="border-collapse: collapse;">@g' $@
