@@ -21,23 +21,23 @@ knitr::opts_chunk$set(echo=TRUE, include=TRUE, collapse=FALSE, warning=FALSE, fi
 # Introduction {#intro}
 
 I am very interested in visualizations. Especially, geospatial or geographic
-visualization! It's all the more better if it is interactive.
+visualization! It is all the more better if the visualization is interactive.
 
-So, for my Data Incubator fellowship application challenge I decided that
-I will try to create a spatial animation of daily _confirmed cases_ and
-_deaths_, in Indiana, from COVID-19 as reported by Johns Hopkins University's
-interactive webiste [@dong_interactive_2020].
+For my Data Incubator fellowship application challenge I tried to create
+a spatial animation of daily _confirmed cases_ and _deaths_, in Indiana, from
+COVID-19 as reported by Johns Hopkins University's interactive webiste
+[@dong_interactive_2020].
 
 ## Motivation
 
-One of my persistent _annoyances_ (and _frustations_) is the central
+One of my persistent _annoyances_ (and _frustrations_) is the central
 incompatibility between how the commonly available spatial data is organized
 and how the data needs to be organized to be used for analytics. The central
 issue is this: _most spatial data is stored in **wide**[^wiki-link-wide-table]
 format whereas most analytics software needs the data to be in **long**
 format_. And, not to mention all the various minor details (esoteric file
 formats of spatial data, missing/invalid data, R's automatic type conversion,
-etc. etc.) that need to be considered to successfully join spatial data with
+etc.) that need to be considered to successfully join spatial data with
 attribute data before you can even do any analytics. Lest you think I have
 been living under a rock I am quite aware, from my own past experiences and
 also reading articles and blogs similar to this [NYT
@@ -49,8 +49,8 @@ away you know that you are reading the words of a novice _data scientist_!
 
 # Data and methods {#data-and-methods}
 
-There are two data components needed to achieve this: 1) COVID-19 time series
-data, and 2) Geographic boundaries data.
+There are two data components needed to achieve my objective: 1) COVID-19 time
+series data, and 2) Geographic boundaries data.
 
 ```{r, message=FALSE}
 ## load the libraries to get started...
@@ -61,13 +61,13 @@ library("ggplot2")
 
 ## COVID-19 time series data
 
-Johns Hopkins University's (JHU) provides the data in CSV format at
-<https://github.com/CSSEGISandData/COVID-19>. Exploring the folders I surmised
-that I needed to get the time series data. So, I downloaded the CSV files
-`time_series_covid19_confirmed_US.csv` and `time_series_covid19_deaths_US.csv`
-from this webiste. Some of you might be wondering: _why the heck didn't you
-just *clone* the repository?_ to which I reply: _sorry, I was being naive_
-[^git-ignorance].
+Johns Hopkins University (JHU) provides the data in CSV format at
+<https://github.com/CSSEGISandData/COVID-19>. Exploring the folders,
+I surmised that I needed to get the time series data. So, I downloaded the CSV
+files `time_series_covid19_confirmed_US.csv` and
+`time_series_covid19_deaths_US.csv`. Some of you might be wondering: _why the
+heck didn't you just *clone* the repository?_ to which I reply: _sorry, I was
+being naive_ [^git-ignorance].
 
 Let's read the data and see what we have.
 
@@ -83,20 +83,20 @@ deaths[1:7, 1:15]
 head(colnames(deaths), 20)
 ```
 
-So, we can see that the data is organized in a wide format where rows
-correspond to the counties of US and the columns correspond to attributes of
-the county and a column for each date (starting 2020.01.22) since JHU started
-tracking data. Looking at the dimensions (especially the number of columns) of
-these data I started thinking that I will _definitely_ have to do something to
-be able to join this data with the spatial data.
+As evident, this data is organized in a wide format where rows correspond to
+the counties of US and the columns correspond to attributes of the county and
+a column for each date, starting 2020.01.22, when JHU started tracking data.
+Looking at the dimensions, especially the number of columns, of these data
+I _definitely_ needed to prepare the dataset in order to join it with the
+spatial data.
 
 The `FIPS` related formatting is because
 `time_series_covid19_confirmed_US.csv` stores the `FIPS` column as a numeric
-with a decimal 0 (see row 6)! In fact, I spent more than four hours trying to chase data
-type issues[^r-automatic-data-conversion-issues] before finally deciding to
-read the data with all columns as **character** vectors and then do the
-necessary data conversion myself. Let's at least fix `FIPS` which we will need
-to join the spatial data.
+with a decimal 0 (see row 6)! In fact, I spent more than four hours trying to
+chase data type issues[^r-automatic-data-conversion-issues] before finally
+deciding to read the data with all columns as **character** vectors and then
+do the necessary data conversion myself. I began by fixing `FIPS`, which is
+the key column needed for joining the spatial data.
 
 ```{r, fips-fixup}
 confirmed[, FIPS:=as.character(as.integer(FIPS))]
@@ -112,10 +112,10 @@ Anyone who has ever worked with any GIS software has inevitably had to deal
 with [shapefiles](https://en.wikipedia.org/wiki/Shapefile). While they might
 have been acceptable for a time period when they were created they are not
 suited for modern times. The GIS community, at least the open source
-geospatial community, realizes these shortcomings and are coming up with
+geospatial community, realizes these shortcomings and is coming up with
 alternative formats such as [GeoPackage](https://www.geopackage.org/),
 [GeoJSON](https://geojson.org/). But visit any of the federal, state, or local
-government websites and you're very likely to run into spatial data provided
+government websites, and you are very likely to run into spatial data provided
 only as shapefile, usually offered in a zip archive. There are many issues
 with shapefiles (just check out <http://switchfromshapefile.org/>)...but
 I know how to deal with all of them...just convert it to a GeoPackage! So,
@@ -135,7 +135,7 @@ Some things to notice are:
 
 1. The geospatial data has only 3233 counties whereas the timeseries data has
    3261 counties!  That is because it has some extra rows for `Grand
-   Princess`, `Federal Corrections (MDOC)` etc. etc. which are irrelevant for
+   Princess`, `Federal Corrections (MDOC)` etc. which are irrelevant for
    my purposes.
 1. The `GEOID` column is comprised of concatenating `STATEFP` and `COUNTYFP`
    columns. You will also note that `table(nchar(counties_geo$GEOID))` yields
@@ -149,7 +149,7 @@ Some things to notice are:
 While we can definitely use the tabular data with the geospatial data "as is",
 there are a few things that we may want to consider:
 
-1. Since this timeseries is update daily there will be more columns as newer
+1. Since this timeseries is updated daily, there will be more columns as newer
    data are added.
 1. Filtering, especially date range based, is going to involve selecting
    different columns.
@@ -158,7 +158,7 @@ there are a few things that we may want to consider:
    to be rather tedious.
 
 Hence, it would be good if we can convert this to long data format. By the
-way, this is the same format that many of the analytics oriented applications,
+way, this is the same format in which many of the analytics oriented applications,
 R included, view the data. That is, instead of thinking of a table consisting
 of rows we should think of it as a collection of columns, each of which is
 a vector of values! This is why inquiring `R` about a data.frame's length (for
@@ -166,7 +166,7 @@ instance `length(mtcars)`) will yield the number of columns (i.e.,
 `dim(mtcars)[[2L]]` which is `r length(mtcars)`). This view of the data is
 called an "inverted table" [@hui_apl_2020 pg 11] and is the predominant view
 of columnar databases and analytic processing systems! Wide-to-long conversion
-is commonly called a "melt" operation in R parlance...so let's melt our data.
+is commonly called a "melt" operation in R parlance...so let us melt our data.
 
 ```{r, melting}
 deaths.id.vars <- 1:12 ## head(colnames(deaths), 14) ... just to verify
@@ -200,7 +200,7 @@ messages via argument names to make argument checking easier.
 
 ## Plotting the data
 
-Now that we have our data, let's try to plot it.  While I wanted to create an animation for all the 
+Now that we have our data, let us try to plot it.  While I wanted to create an animation for all the 
 counties in US I ran into lots of issues. So, I decided to just do a small
 example for Indiana counties.
 
@@ -285,7 +285,7 @@ sessionInfo()
   much of GIS (my own area of comfort) workflows. But, most important of all,
   I have not yet internalized, and integrated, git comprehensively into _my own_
   workflow!
-[^r-automatic-data-conversion-issues]: I could never figure out whehter it was
+[^r-automatic-data-conversion-issues]: I could never figure out whether it was
   R's automatic data conversion or my heavy customization that was causing all
   these issues. I tried running `R --vanilla` which only increased my
   problems...sigh!
