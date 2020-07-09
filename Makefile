@@ -5,6 +5,7 @@
 .DELETE_ON_ERROR:
 .ONESHELL:
 SHELL := bash
+.RECIPEPREFIX = >
 
 MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
@@ -22,49 +23,49 @@ all: exploring-covid.html exploring-covid.R exploring-covid.Rout
 ## all: exploring-covid.Rout
 
 %.tex: %.md Makefile
-	pandoc ${PANDOC_OPTS} -t latex -o $@ $<
+> pandoc ${PANDOC_OPTS} -t latex -o $@ $<
 
 %.pdf: %.tex Makefile
-	sed -i -e 's@\\linethicknes@2 pt@g' $<
-	# latexmk -silent -rules -pdf -xelatex $<
-	# latexmk -silent -pdflua $<  # Does not work with microtypeoptions
-	latexmk -silent -pdf $<
-	latexmk -silent -pdf -c $<
-	# open $@
+> sed -i -e 's@\\linethicknes@2 pt@g' $<
+> # latexmk -silent -rules -pdf -xelatex $<
+> # latexmk -silent -pdflua $<  # Does not work with microtypeoptions
+> latexmk -silent -pdf $<
+> latexmk -silent -pdf -c $<
+> # open $@
 %.pdf: %.ly Makefile
-	${LILYPOND} $<
+> ${LILYPOND} $<
 %.pdf: %.Rmd Makefile
-	R ${R_OPTS} -e "rmarkdown::render('$<', 'pdf_document')"
+> R ${R_OPTS} -e "rmarkdown::render('$<', 'pdf_document')"
 %.R: %.Rmd Makefile
-	R ${R_OPTS} -e "knitr::purl('$<')"
+> R ${R_OPTS} -e "knitr::purl('$<')"
 ## %.pdf: %.md Makefile
 ## 	pandoc ${PANDOC_OPTS} -t latex  -o $@ $<
 
 
 %.docx: %.Rmd Makefile
-	R ${R_OPTS} -e "rmarkdown::render('$<', 'word_document')"
+> R ${R_OPTS} -e "rmarkdown::render('$<', 'word_document')"
 %.docx: %.md Makefile
-	pandoc ${PANDOC_OPTS} -t docx -o $@ $<
+> pandoc ${PANDOC_OPTS} -t docx -o $@ $<
 %.odt: %.md Makefile
-	pandoc ${PANDOC_OPTS} -t odt -o $@ $<
+> pandoc ${PANDOC_OPTS} -t odt -o $@ $<
 
 %.Rout: %.R Makefile
-	R CMD BATCH --no-restore --no-save $<
+> R CMD BATCH --no-restore --no-save $<
 
 %.html: %.Rmd Makefile
-	R ${R_OPTS} -e "rmarkdown::render('$<', 'html_document')"
-	xdg-open $@
+> R ${R_OPTS} -e "rmarkdown::render('$<', 'html_document')"
+> xdg-open $@
 %.html: %.md Makefile
-	pandoc ${PANDOC_OPTS} ${PANDOC_HTML_OPTS} -o $@ $<
-	# sed -i -e 's@<table>@<table border="1" style="border-collapse: collapse;">@g' $@
-	# open $@
+> pandoc ${PANDOC_OPTS} ${PANDOC_HTML_OPTS} -o $@ $<
+> # sed -i -e 's@<table>@<table border="1" style="border-collapse: collapse;">@g' $@
+> # open $@
 %.html: %.tex Makefile
-	pandoc $(PANDOC_OPTS) ${PANDOC_HTML_OPTS} -f latex -o $@ $<
+> pandoc $(PANDOC_OPTS) ${PANDOC_HTML_OPTS} -f latex -o $@ $<
 
 clean:
-	@echo "Do cleaning here"
-	rm -rf *.Rout .RData
+> @echo "Do cleaning here"
+> rm -rf *.Rout .RData
 
 cleanall: clean
-	@echo "Do some specialized cleaning here..."
+> @echo "Do some specialized cleaning here..."
 

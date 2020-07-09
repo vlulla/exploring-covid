@@ -119,8 +119,9 @@ government websites, and you are very likely to run into spatial data provided
 only as shapefile, usually offered in a zip archive. There are many issues
 with shapefiles (just check out <http://switchfromshapefile.org/>)...but
 I know how to deal with all of them...just convert it to a GeoPackage! So,
-I downloaded the US county shapefile (`cb_2018_us_county_500k.zip`) from US
-Census Bureau's [Cartographic Boundary Files
+I downloaded the US county shapefile
+(`cb_2018_us_county_500k.zip`)[^not-geodatabase] from US Census Bureau's
+[Cartographic Boundary Files
 - Shapefile](https://www.census.gov/geographies/mapping-files/time-series/geo/carto-boundary-file.html)
   and converted it to a geopackage.
 
@@ -141,8 +142,8 @@ Some things to notice are:
    columns. You will also note that `table(nchar(counties_geo$GEOID))` yields
    `r table(nchar(counties_geo$GEOID))` and that's why we had to '0'-prefix
    some of our FIPS rows earlier.
-1. Finally, it appears that we can use the `GEOID` and `FIPS` columns to
-   join/relate our attribute and spatial tables.
+1. Finally, it appears that the `GEOID` and `FIPS` columns  can be used to
+   join/relate the attribute and spatial tables.
 
 ## Transforming data
 
@@ -152,7 +153,17 @@ there are a few things that we may want to consider:
 1. Since this timeseries is updated daily, there will be more columns as newer
    data are added.
 1. Filtering, especially date range based, is going to involve selecting
-   different columns.
+   different columns. For instance, exploring cases/deaths 
+   between April 1, 2020 to June 15, 2020 will require figuring out which
+   columns to select. And, then a little while later if we wish to explore
+   cases/deaths between April 15, 2020 to June 30, 2020 then we will again
+   have to figure out which columns to select.
+
+   Contrast that with storing this data in a long format, where there are
+   three columns: one for `date`, another for `confirmed cases`, and the third
+   column for `deaths`. Now selecting based on date ranges is a simple matter
+   of row filtering that can be done by R's builtin indexing or other data
+   munging packages (`data.table`, `dplyr`, `tidyverse`, `reshape`).
 1. Determining a date (or date ranges) based on some combination of values
    (either confirmed case or deaths or some transformation of them) are going
    to be rather tedious.
@@ -166,7 +177,7 @@ instance `length(mtcars)`) will yield the number of columns (i.e.,
 `dim(mtcars)[[2L]]` which is `r length(mtcars)`). This view of the data is
 called an "inverted table" [@hui_apl_2020 pg 11] and is the predominant view
 of columnar databases and analytic processing systems! Wide-to-long conversion
-is commonly called a "melt" operation in R parlance...so let us melt our data.
+is commonly called a "melt" operation in R parlance. Therefore let us melt our data.
 
 ```{r, melting}
 deaths.id.vars <- 1:12 ## head(colnames(deaths), 14) ... just to verify
@@ -289,6 +300,10 @@ sessionInfo()
   R's automatic data conversion or my heavy customization that was causing all
   these issues. I tried running `R --vanilla` which only increased my
   problems...sigh!
+[^not-geodatabase]: Since I was mostly interested in getting the data into
+  R it did not matter whehter I chose shapefile or geodatabase. I would have
+  **definitely chosen** geodatabase if the data size would have exceeded
+  shapefile's limitations.
 
 # References {#references}
 
